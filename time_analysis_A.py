@@ -1,5 +1,4 @@
-import pyspark
-import re
+mport pyspark
 from datetime import datetime
 
 '''
@@ -21,7 +20,6 @@ TRANSACTIONS
 
 sc = pyspark.SparkContext()
 
-#we will use this function later in our filter transformation
 def is_good_line(line):
     try:
         fields = line.split(',')
@@ -44,15 +42,13 @@ lines = sc.textFile("/data/ethereum/transactions/")
 clean_lines = lines.filter(is_good_line)
 
 # (date, (val, 1))
-dates_and_values = clean_lines.map(mapper)
+dates_and_values = clean_lines.map(mapper) 
 
-# reducebykey (date, (sum(vals), count(vals)))
-# map (date, avg, count)
-transactions_per_month = dates_and_values\
-.reduceByKey(lambda a, b: (a[0]+b[0], a[1]+b[1]))\
-.map(lambda l: (l[0], l[1][0]/l[1][1], l[1][1]))
+# (date, (sum(vals), count(vals)))
+date_sum_count = dates_and_values.reduceByKey(lambda a, b: (a[0]+b[0], a[1]+b[1])) 
 
-result = transactions_per_month.persist()
+# (date, avg, count)
+result = date_sum_count.map(lambda l: (l[0], l[1][0]/l[1][1], l[1][1])) 
 
 print("ApplicationId: ", sc.applicationId)
 
