@@ -1,4 +1,4 @@
-mport pyspark
+import pyspark
 from datetime import datetime
 
 '''
