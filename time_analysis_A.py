@@ -48,7 +48,7 @@ dates_and_values = clean_lines.map(mapper)
 date_sum_count = dates_and_values.reduceByKey(lambda a, b: (a[0]+b[0], a[1]+b[1])) 
 
 # (date, avg, count)
-result = date_sum_count.map(lambda l: (l[0], l[1][0]/l[1][1], l[1][1])) 
+result = date_sum_count.map(lambda l: (l[0], str(l[1][0]/l[1][1]), str(l[1][1]))) 
 
 print("ApplicationId: ", sc.applicationId)
 
