@@ -8,7 +8,7 @@
 from mrjob.job import MRJob
 from mrjob.step import MRStep
 
-class B(MRJob):
+class C(MRJob):
 
 	def mapper(self, _, row):
 		try:
@@ -22,12 +22,12 @@ class B(MRJob):
 	# recieve: (miner, [size, ...])
 	def combiner(self, miner, sizes):
 		total_size = sum(sizes)
-		yield(miner, total_size)	
+		yield(miner, total_size)
 
 	# recieve: (miner, [size, ...])
 	def reducer(self, miner, sizes):
 		total_size = sum(sizes)
-		yield(miner, total_size)	
+		yield(miner, total_size)
 
 	def mapper2(self, miner, total_size):
 		yield(None, (miner, total_size))
@@ -37,7 +37,7 @@ class B(MRJob):
 		top_miners = sorted(miner_size, reverse=True, key=lambda tup: tup[1])
 		i = 0
 		for miner in top_miners:
-			yield(_, miner)
+			yield(None, miner)
 			i += 1
 			if i >= 10:
 				break
@@ -46,16 +46,21 @@ class B(MRJob):
 	def reducer2(self, _, miner_size):
 		top_miners = sorted(miner_size, reverse=True, key=lambda tup: tup[1])
 		i = 0
-		yield("rank,miner, size")
+		yield("rank,miner, size", None)
 		for miner in top_miners:
 			i += 1
-			yield("{},{},{}".format(i, miner[0], miner[1]))
+			yield("{},{},{}".format(i, miner[0], miner[1]), None)
 			if i >= 10:
 				break
 
 	def steps(self):
-		return [MRStep(mapper=self.mapper, combiner=self.combiner, reducer=self.reducer), MRStep(mapper=self.mapper2, combiner=self.combiner2, reducer=self.reducer2)]
+		return [MRStep(mapper=self.mapper, 
+									combiner=self.combiner, 
+									reducer=self.reducer),
+					 MRStep(mapper=self.mapper2, 
+					 				combiner=self.combiner2, 
+									reducer=self.reducer2)]
 
 if __name__ == '__main__':
-	B.JOBCONF = {'mapreduce.job.reduces': '4'}
-	B.run()
+	C.JOBCONF = {'mapreduce.job.reduces': '4'}
+	C.run()

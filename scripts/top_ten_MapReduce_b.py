@@ -10,22 +10,19 @@ class B(MRJob):
 	def mapper_repartition_aggregate(self, _, row):
 		try:
 			fields = row.split(',')
-			if len(fields) == 5:
-				# contact (address, ("contract", 1))
-				yield(fields[0], ("contract", 1)) 
-			elif len(fields) == 7:
+			if len(fields) == 7:
 				# transaction (address, ("transaction", value))
 				value = int(fields[3])
 				if value > 0:
 					yield(fields[2], ("transaction", value))
-			else:
-				pass
+			elif len(fields) == 5:
+					# contact (address, ("contract", 1))
+					yield(fields[0], ("contract", 1))
 		except:
 			pass	
 
 	# recieve: address, [("contract", 1), ("transaction", 1234567), ...]
 	def combiner_repartition_init(self, address, values):
-		total_recieved = 0
 
 		# {"contract": count, "transaction": total_value}
 		contracts_and_transactions = {}
@@ -45,13 +42,11 @@ class B(MRJob):
 		contracts_and_transactions = {}
 
 		for value in values:
-			if not value[1] > 0:
-				continue
-
-			if value[0] in contracts_and_transactions:
-				contracts_and_transactions[value[0]] += value[1]
-			else:
-				contracts_and_transactions[value[0]] = value[1]
+			if value[1] > 0:
+				if value[0] in contracts_and_transactions:
+					contracts_and_transactions[value[0]] += value[1]
+				else:
+					contracts_and_transactions[value[0]] = value[1]
 
 		# check that both transactions and contracts are present in value array
 		if "transaction" in contracts_and_transactions:
@@ -80,11 +75,11 @@ class B(MRJob):
 	# recieve: None, [(address, total_recieved), ...]
 	def combiner_top_ten(self, _, values):
 		# sort by total recieved
-		top_ten_totals = sorted(values, key=lambda val: val[1], reverse=True)
+		sorted_values = sorted(values, reverse=True, key=lambda tup: tup[1])
 
 		i = 0
-		for value in top_ten_totals:
-			yield(None, value) 
+		for value in sorted_values:
+			yield(None, value)
 			i += 1
 			if i >= 10:
 				break
@@ -92,19 +87,23 @@ class B(MRJob):
 
 	# recieve: None, [(address, total_recieved), ...]
 	def reducer_top_ten(self, _, values):
-		top_ten_totals = sorted(values, key=lambda val: val[1], reverse=True)
+		sorted_values = sorted(values, reverse=True, key=lambda tup: tup[1])
 	
-		rank = 0
-		
-		yield("{}, {}, {}".format("rank", "address", "total transacted"))
-		for row in top_ten_totals:
-			rank += 1
-			yield("{}, {}, {}".format(rank, row[0], row[1]), None)
-			if rank >= 10:
+		i = 0
+		for value in sorted_values:
+			i += 1
+			yield("{}, {}, {}".format("rank", "address", "total transacted"), None)
+			if i >= 10:
 				break
+		
 
 	def steps(self):
-		return [MRStep(mapper=self.mapper_repartition_aggregate, combiner=self.combiner_repartition_init, reducer=self.reducer_repartition_join), MRStep(mapper=self.mapper_top_ten_init, reducer=self.reducer_top_ten)]
+		return [MRStep(mapper=self.mapper_repartition_aggregate, 
+                   combiner=self.combiner_repartition_init, 
+                   reducer=self.reducer_repartition_join), 
+            MRStep(mapper=self.mapper_top_ten_init, 
+                   combiner=self.combiner_top_ten, 
+                   reducer=self.reducer_top_ten)]
 
 if __name__ == '__main__':
 	B.JOBCONF = {'mapreduce.job.reduces': '4'}
