@@ -74,10 +74,8 @@ class B(MRJob):
 	#		yield(address, total_transacted)
 						
 	
-	#def mapper_top_ten_init(self, address, total_recieved):
-	def mapper_top_ten_init(self, _, row):
-		fields = row.split('\t')	
-		yield(None, (fields[0], fields[1]))
+	def mapper_top_ten_init(self, address, total_recieved):
+		yield(None, (address, total_recieved))
 
 	# recieve: None, [(address, total_recieved), ...]
 	def combiner_top_ten(self, _, values):
@@ -101,13 +99,12 @@ class B(MRJob):
 		yield("{}, {}, {}".format("rank", "address", "total transacted"))
 		for row in top_ten_totals:
 			rank += 1
-			yield("{}, {}, {}".format(rank, row[0], row[1]))
+			yield("{}, {}, {}".format(rank, row[0], row[1]), None)
 			if rank >= 10:
 				break
 
 	def steps(self):
-		#return [MRStep(mapper=self.mapper_repartition_aggregate, combiner=self.combiner_repartition_init, reducer=self.reducer_repartition_join), MRStep(mapper=self.mapper_top_ten_init, combiner=self.combiner_top_ten, reducer=self.reducer_top_ten)]
-		return [MRStep(mapper=self.mapper_top_ten_init, combiner=self.combiner_top_ten, reducer=self.reducer_top_ten)]
+		return [MRStep(mapper=self.mapper_repartition_aggregate, combiner=self.combiner_repartition_init, reducer=self.reducer_repartition_join), MRStep(mapper=self.mapper_top_ten_init, reducer=self.reducer_top_ten)]
 
 if __name__ == '__main__':
 	B.JOBCONF = {'mapreduce.job.reduces': '4'}

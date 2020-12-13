@@ -1,5 +1,8 @@
 """ 
-	PART B
+	PART C
+
+	Evaluate the top 10 miners by the size of the blocks mined. This is simpler as it does not require a join. You will first have to aggregate blocks to see how much each miner has been involved in. You will want to aggregate size for addresses in the miner field. This will be similar to the wordcount that we saw in Lab 1 and Lab 2. You can add each value from the reducer to a list and then sort the list to obtain the most active miners.
+
 """
 
 from mrjob.job import MRJob
@@ -7,104 +10,51 @@ from mrjob.step import MRStep
 
 class B(MRJob):
 
-	def mapper_repartition_aggregate(self, _, row):
+	def mapper(self, _, row):
 		try:
 			fields = row.split(',')
-			if len(fields) == 5:
-				# contact (address, ("contract", 1))
-				yield(fields[0], ("contract", 1)) 
-			elif len(fields) == 7:
-				# transaction (address, ("transaction", value))
-				value = int(fields[3])
-				if value > 0:
-					yield(fields[2], ("transaction", value))
-			else:
-				pass
+			miner = fields[2]
+			size = int(fields[4])
+			yield(miner, size)
 		except:
-			pass	
+			pass
 
-	# recieve: address, [("contract", 1), ("transaction", 1234567), ...]
-	def combiner_repartition_init(self, address, values):
-		total_recieved = 0
+	# recieve: (miner, [size, ...])
+	def combiner(self, miner, sizes):
+		total_size = sum(sizes)
+		yield(miner, total_size)	
 
-		# {"contract": count, "transaction": total_value}
-		contracts_and_transactions = {}
+	# recieve: (miner, [size, ...])
+	def reducer(self, miner, sizes):
+		total_size = sum(sizes)
+		yield(miner, total_size)	
 
-		for value in values:
-			if value[0] in contracts_and_transactions:
-				contracts_and_transactions[value[0]] += value[1]
-			else:
-				contracts_and_transactions[value[0]] = value[1]
+	def mapper2(self, miner, total_size):
+		yield(None, (miner, total_size))
 
-		for con_or_tran in contracts_and_transactions:
-			yield(address, (con_or_tran, contracts_and_transactions[con_or_tran]))	
-
-	# recieve: address, [("contract", 521), ("transaction", 12341231), ...]
-	def reducer_repartition_join(self, address, values):
-		# {"contract": count, "transaction": total_value}
-		contracts_and_transactions = {}
-
-		for value in values:
-			if not value[1] > 0:
-				continue
-
-			if value[0] in contracts_and_transactions:
-				contracts_and_transactions[value[0]] += value[1]
-			else:
-				contracts_and_transactions[value[0]] = value[1]
-
-		# check that both transactions and contracts are present in value array
-		if "transaction" in contracts_and_transactions:
-			if "contract" in contracts_and_transactions:
-				yield(address, contracts_and_transactions["transaction"])
-
-	# recieve: address, [("contract", 521), ("transaction", 12341231), ...]
-	#def reducer_repartition_join(self, address, values):
-	#	in_contracts = False
-	#	total_transacted = 0
-	#	
-	#	for value in values:
-	#		if value[1] > 0:
-	#			if value[0] == "transaction":
-	#				total_transacted += value[1]
-	#			elif value[0] == "contract" and in_contracts is False:
-	#				in_contracts = True
-	#	
-	#	if in_contracts is True:
-	#		yield(address, total_transacted)
-						
-	
-	def mapper_top_ten_init(self, address, total_recieved):
-		yield(None, (address, total_recieved))
-
-	# recieve: None, [(address, total_recieved), ...]
-	def combiner_top_ten(self, _, values):
-		# sort by total recieved
-		top_ten_totals = sorted(values, key=lambda val: val[1], reverse=True)
-
+	# recieve: None, [(miner, total_size), ...]
+	def combiner2(self, _, miner_size):
+		top_miners = sorted(miner_size, reverse=True, key=lambda tup: tup[1])
 		i = 0
-		for value in top_ten_totals:
-			yield(None, value) 
+		for miner in top_miners:
+			yield(_, miner)
 			i += 1
 			if i >= 10:
 				break
-		
 
-	# recieve: None, [(address, total_recieved), ...]
-	def reducer_top_ten(self, _, values):
-		top_ten_totals = sorted(values, key=lambda val: val[1], reverse=True)
-	
-		rank = 0
-		
-		yield("{}, {}, {}".format("rank", "address", "total transacted"))
-		for row in top_ten_totals:
-			rank += 1
-			yield("{}, {}, {}".format(rank, row[0], row[1]))
-			if rank >= 10:
+	# recieve: None, [(miner, total_size), ...]
+	def reducer2(self, _, miner_size):
+		top_miners = sorted(miner_size, reverse=True, key=lambda tup: tup[1])
+		i = 0
+		yield("rank,miner, size")
+		for miner in top_miners:
+			i += 1
+			yield("{},{},{}".format(i, miner[0], miner[1]))
+			if i >= 10:
 				break
 
 	def steps(self):
-		return [MRStep(mapper=self.mapper_repartition_aggregate, combiner=self.combiner_repartition_init, reducer=self.reducer_repartition_join), MRStep(mapper=self.mapper_top_ten_init, combiner=self.combiner_top_ten, reducer=self.reducer_top_ten)]
+		return [MRStep(mapper=self.mapper, combiner=self.combiner, reducer=self.reducer), MRStep(mapper=self.mapper2, combiner=self.combiner2, reducer=self.reducer2)]
 
 if __name__ == '__main__':
 	B.JOBCONF = {'mapreduce.job.reduces': '4'}
