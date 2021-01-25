@@ -55,11 +55,19 @@ class C(MRJob):
 
 	def steps(self):
 		return [MRStep(mapper=self.mapper, 
+<<<<<<< HEAD:scripts/C_top_ten_most_active_miners.py
 				combiner=self.combiner, 
 				reducer=self.reducer),
 			 MRStep(mapper=self.mapper2, 
 				combiner=self.combiner2, 
 				reducer=self.reducer2)]
+=======
+									combiner=self.combiner, 
+									reducer=self.reducer),
+					 MRStep(mapper=self.mapper2, 
+					 				combiner=self.combiner2, 
+									reducer=self.reducer2)]
+>>>>>>> c0eae6ac3886d81fd50c1841c4267757840ff16b:scripts/part-c-ten-most-active-miners.py
 
 if __name__ == '__main__':
 	C.JOBCONF = {'mapreduce.job.reduces': '4'}
